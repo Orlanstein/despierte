@@ -1,0 +1,16 @@
+[project]
+name = "despierte"
+version = "0.1.0"
+description = "TUI y CLI para gestionar equipos por Wake-on-LAN, sin dependencias de terceros."
+requires-python = ">=3.9"
+readme = "README.md"
+
+[project.scripts]
+despierte = "despierte.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["despierte*"]
