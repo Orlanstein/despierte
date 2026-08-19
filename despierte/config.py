@@ -32,7 +32,7 @@ class InvalidIPError(ValueError):
 def normalize_mac(mac: str) -> str:
     match = MAC_RE.match(mac.strip())
     if not match:
-        raise InvalidMACError(f"MAC inválida: {mac!r}")
+        raise InvalidMACError(f"invalid MAC: {mac!r}")
     groups = [match.group(1), match.group(3), match.group(4), match.group(5), match.group(6), match.group(7)]
     return ":".join(g.upper() for g in groups)
 
@@ -41,7 +41,7 @@ def validate_ipv4(ip: str) -> str:
     try:
         return str(ipaddress.IPv4Address(ip.strip()))
     except ValueError as exc:
-        raise InvalidIPError(f"IP inválida: {ip!r}") from exc
+        raise InvalidIPError(f"invalid IP: {ip!r}") from exc
 
 
 def looks_destructive(cmd: str) -> bool:
@@ -120,11 +120,11 @@ def load_config(path: Optional[Path] = None) -> List[Host]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise ConfigError(f"Config JSON inválido en {path}: {exc}") from exc
+        raise ConfigError(f"invalid config JSON in {path}: {exc}") from exc
     try:
         return [Host.from_dict(h) for h in raw.get("hosts", [])]
     except (KeyError, TypeError, ValueError) as exc:
-        raise ConfigError(f"Config con estructura inválida en {path}: {exc}") from exc
+        raise ConfigError(f"invalid config structure in {path}: {exc}") from exc
 
 
 def save_config(hosts: List[Host], path: Optional[Path] = None) -> None:

@@ -38,14 +38,14 @@ COLOR_SELECTED = 5
 COLOR_ERROR = 6
 
 FORM_FIELDS = [
-    ("name", "Nombre"),
+    ("name", "Name"),
     ("mac", "MAC"),
     ("ip", "IP"),
     ("broadcast", "Broadcast"),
-    ("wol_port", "Puerto WOL"),
-    ("ssh_user", "Usuario SSH"),
-    ("ssh_host", "Host SSH (vacío = usa IP)"),
-    ("ssh_port", "Puerto SSH"),
+    ("wol_port", "WOL port"),
+    ("ssh_user", "SSH user"),
+    ("ssh_host", "SSH host (blank = use IP)"),
+    ("ssh_port", "SSH port"),
 ]
 
 FORM_DEFAULTS = {
@@ -67,8 +67,8 @@ def _init_colors() -> None:
 
 
 STATUS_GLYPH = {
-    Status.ONLINE: ("●", COLOR_ONLINE),   # ●
-    Status.OFFLINE: ("○", COLOR_OFFLINE),  # ○
+    Status.ONLINE: ("●", COLOR_ONLINE),
+    Status.OFFLINE: ("○", COLOR_OFFLINE),
     Status.UNKNOWN: ("?", COLOR_UNKNOWN),
 }
 
@@ -152,7 +152,7 @@ class TextViewer:
                 win.addstr(0, 2, f" {self.title} "[: win_w - 4])
             for i, line in enumerate(self.lines[offset:offset + body_h]):
                 win.addstr(1 + i, 2, line[: win_w - 4])
-            win.addstr(win_h - 2, 2, "↑↓ desplazar · enter/esc cerrar"[: win_w - 4], curses.A_DIM)
+            win.addstr(win_h - 2, 2, "↑↓ scroll · enter/esc/q close"[: win_w - 4], curses.A_DIM)
             win.refresh()
             ch = win.getch()
             if ch in (curses.KEY_UP, ord("k")):
@@ -179,14 +179,14 @@ class ActionsEditor:
         while True:
             win.erase()
             win.border()
-            win.addstr(0, 2, " Acciones SSH ")
+            win.addstr(0, 2, " SSH actions ")
             if not self.actions:
-                win.addstr(1, 2, "(sin acciones)")
+                win.addstr(1, 2, "(no actions yet)")
             for i, action in enumerate(self.actions):
                 mark = "!" if action.destructive else " "
                 attr = curses.A_REVERSE if i == self.cursor else curses.A_NORMAL
                 win.addstr(1 + i, 2, f"{mark} {action.label}: {action.cmd}"[: win_w - 4], attr)
-            win.addstr(win_h - 2, 2, "a agregar · d borrar · esc volver"[: win_w - 4], curses.A_DIM)
+            win.addstr(win_h - 2, 2, "a:add  d:delete  esc:back"[: win_w - 4], curses.A_DIM)
             win.refresh()
             ch = win.getch()
             if ch in (curses.KEY_UP, ord("k")):
@@ -194,10 +194,10 @@ class ActionsEditor:
             elif ch in (curses.KEY_DOWN, ord("j")):
                 self.cursor = min(max(0, len(self.actions) - 1), self.cursor + 1)
             elif ch == ord("a"):
-                label = TextPrompt(self.stdscr, "Nombre de la acción: ").run()
+                label = TextPrompt(self.stdscr, "Action name: ").run()
                 if not label:
                     continue
-                cmd = TextPrompt(self.stdscr, "Comando: ").run()
+                cmd = TextPrompt(self.stdscr, "Command: ").run()
                 if not cmd:
                     continue
                 self.actions.append(SSHAction(label=label, cmd=cmd, destructive=looks_destructive(cmd)))
@@ -228,13 +228,13 @@ class SSHActionModal:
         while True:
             win.erase()
             win.border()
-            win.addstr(0, 2, f" Acciones SSH: {self.host.name} "[: win_w - 4])
+            win.addstr(0, 2, f" SSH actions: {self.host.name} "[: win_w - 4])
             for i, opt in enumerate(options):
-                label = opt.label if opt else "Comando personalizado…"
+                label = opt.label if opt else "Custom command…"
                 marker = ">" if i == cursor else " "
                 attr = curses.A_REVERSE if i == cursor else curses.A_NORMAL
                 win.addstr(1 + i, 2, f"{marker} {label}"[: win_w - 4], attr)
-            win.addstr(win_h - 2, 2, "enter ejecutar · esc cancelar"[: win_w - 4], curses.A_DIM)
+            win.addstr(win_h - 2, 2, "enter:run  esc:cancel"[: win_w - 4], curses.A_DIM)
             win.refresh()
             ch = win.getch()
             if ch in (curses.KEY_UP, ord("k")):
@@ -244,10 +244,10 @@ class SSHActionModal:
             elif ch in (10, 13):
                 chosen = options[cursor]
                 if chosen is None:
-                    cmd = TextPrompt(self.stdscr, "Comando: ").run()
+                    cmd = TextPrompt(self.stdscr, "Command: ").run()
                     if not cmd:
                         continue
-                    return ("comando personalizado", cmd, looks_destructive(cmd))
+                    return ("custom command", cmd, looks_destructive(cmd))
                 return (chosen.label, chosen.cmd, chosen.destructive)
             elif ch == 27:
                 return None
@@ -278,22 +278,22 @@ class HostFormScreen:
     def _validate(self) -> bool:
         self.errors.clear()
         if not self.values["name"].strip():
-            self.errors["name"] = "obligatorio"
+            self.errors["name"] = "required"
         try:
             normalize_mac(self.values["mac"])
         except InvalidMACError:
-            self.errors["mac"] = "formato inválido"
+            self.errors["mac"] = "invalid format"
         for key in ("ip", "broadcast"):
             value = self.values[key].strip()
             if value:
                 try:
                     validate_ipv4(value)
                 except InvalidIPError:
-                    self.errors[key] = "IP inválida"
+                    self.errors[key] = "invalid IP"
         for key in ("wol_port", "ssh_port"):
             value = self.values[key].strip()
             if value and not value.isdigit():
-                self.errors[key] = "debe ser numérico"
+                self.errors[key] = "must be numeric"
         return not self.errors
 
     def _build_host(self) -> Host:
@@ -317,11 +317,11 @@ class HostFormScreen:
         win.keypad(True)
         curses.halfdelay(5)
         num_fields = len(FORM_FIELDS)
-        total_rows = num_fields + 1  # + fila de "acciones"
+        total_rows = num_fields + 1  # + the "actions" row
         while True:
             win.erase()
             win.border()
-            title = " Editar equipo " if self.base else " Nuevo equipo "
+            title = " Edit host " if self.base else " New host "
             win.addstr(0, 2, title)
             for i, (key, label) in enumerate(FORM_FIELDS):
                 attr = curses.A_REVERSE if i == self.cursor else curses.A_NORMAL
@@ -330,13 +330,13 @@ class HostFormScreen:
             actions_attr = curses.A_REVERSE if self.cursor == num_fields else curses.A_NORMAL
             win.addstr(
                 1 + num_fields, 2,
-                f"Acciones SSH ({len(self.actions)}) — enter para editar"[: win_w - 4],
+                f"SSH actions ({len(self.actions)}) — enter to edit"[: win_w - 4],
                 actions_attr,
             )
             hint_row = win.getmaxyx()[0] - 2
             win.addstr(
                 hint_row, 2,
-                "↑↓ mover · enter editar · s guardar · esc cancelar"[: win_w - 4],
+                "↑↓ move · enter edit · s save · esc cancel"[: win_w - 4],
                 curses.A_DIM,
             )
             win.refresh()
@@ -376,7 +376,7 @@ class App:
         try:
             self.hosts = load_config(self.config_path)
         except ConfigError as exc:
-            self.message = f"error de config: {exc}"
+            self.message = f"config error: {exc}"
 
         self.monitor = StatusMonitor(self._ping_targets, interval=5.0)
         self.monitor.start()
@@ -394,7 +394,7 @@ class App:
         try:
             save_config(self.hosts, self.config_path)
         except OSError as exc:
-            self.message = f"error guardando config: {exc}"
+            self.message = f"error saving config: {exc}"
 
     def run(self) -> None:
         curses.curs_set(0)
@@ -434,13 +434,13 @@ class App:
         stdscr.erase()
         height, width = stdscr.getmaxyx()
 
-        title = " despierte — gestor de equipos "
+        title = " despierte — host manager "
         stdscr.attron(curses.color_pair(COLOR_HEADER) | curses.A_BOLD)
         stdscr.addstr(0, max(0, (width - len(title)) // 2), title[:width])
         stdscr.attroff(curses.color_pair(COLOR_HEADER) | curses.A_BOLD)
 
         hosts = self.visible_hosts()
-        header = f"    {'Nombre':<18} {'MAC':<18} {'IP':<15} Estado"
+        header = f"    {'Name':<18} {'MAC':<18} {'IP':<15} Status"
         if height > 2:
             stdscr.addstr(2, 0, header[:width], curses.A_UNDERLINE)
 
@@ -461,16 +461,16 @@ class App:
             row += 1
 
         if not hosts and height > 4:
-            stdscr.addstr(4, 2, "No hay equipos. Presioná 'n' para agregar uno.")
+            stdscr.addstr(4, 2, "No hosts yet. Press 'n' to add one.")
 
         if height >= 2:
             footer = (
-                "↑↓ mover  espacio sel  w despertar  n nuevo  e editar  "
-                "d borrar  s ssh  r refrescar  / filtro  ? ayuda  q salir"
+                "q quit  ?:help  ↑↓ move  space select  w wake  n new  "
+                "e edit  d delete  s ssh  r refresh  / filter"
             )
             stdscr.addstr(height - 2, 0, footer[:width - 1], curses.A_DIM)
         if self.filter_text and height >= 3:
-            stdscr.addstr(height - 3, 0, f"filtro: {self.filter_text}"[:width - 1])
+            stdscr.addstr(height - 3, 0, f"filter: {self.filter_text}"[:width - 1])
         if self.message and height >= 1:
             stdscr.addstr(height - 1, 0, self.message[:width - 1], curses.color_pair(COLOR_ERROR))
         stdscr.noutrefresh()
@@ -508,7 +508,7 @@ class App:
             self.action_ssh_menu(hosts)
         elif ch == ord("r"):
             self.monitor.refresh_now()
-            self.message = "refrescando estado..."
+            self.message = "refreshing status..."
         elif ch == ord("/"):
             self.action_filter()
         elif ch == ord("?"):
@@ -524,16 +524,16 @@ class App:
             try:
                 send_magic_packet(host.mac, host.broadcast, host.wol_port)
             except (InvalidMACError, OSError) as exc:
-                self.message = f"error despertando {host.name}: {exc}"
+                self.message = f"error waking {host.name}: {exc}"
                 return
-        self.message = "magic packet enviado a: " + ", ".join(h.name for h in targets)
+        self.message = "magic packet sent to: " + ", ".join(h.name for h in targets)
 
     def action_new_host(self) -> None:
         host = HostFormScreen(self.stdscr).run()
         if host is not None:
             self.hosts.append(host)
             self.save()
-            self.message = f"agregado: {host.name}"
+            self.message = f"added: {host.name}"
 
     def action_edit_host(self, hosts: List[Host]) -> None:
         if not hosts:
@@ -543,23 +543,23 @@ class App:
         if updated is not None:
             self.hosts[self.hosts.index(original)] = updated
             self.save()
-            self.message = f"actualizado: {updated.name}"
+            self.message = f"updated: {updated.name}"
 
     def action_delete(self, hosts: List[Host]) -> None:
         targets = [h for h in hosts if id(h) in self.selected] or ([hosts[self.cursor]] if hosts else [])
         if not targets:
             return
         names = ", ".join(h.name for h in targets)
-        if not ConfirmDialog(self.stdscr, f"¿Borrar {names}? [y/N]").run():
+        if not ConfirmDialog(self.stdscr, f"Delete {names}? [y/N]").run():
             return
         for host in targets:
             self.hosts.remove(host)
             self.selected.discard(id(host))
         self.save()
-        self.message = f"borrado: {names}"
+        self.message = f"deleted: {names}"
 
     def action_filter(self) -> None:
-        text = TextPrompt(self.stdscr, "Filtrar por nombre: ", self.filter_text).run()
+        text = TextPrompt(self.stdscr, "Filter by name: ", self.filter_text).run()
         if text is not None:
             self.filter_text = text
             self.cursor = 0
@@ -572,10 +572,10 @@ class App:
         if choice is None:
             return
         label, cmd, destructive = choice
-        if destructive and not ConfirmDialog(self.stdscr, f"Acción destructiva: {cmd}. ¿Continuar? [y/N]").run():
+        if destructive and not ConfirmDialog(self.stdscr, f"Destructive action: {cmd}. Continue? [y/N]").run():
             return
         self.pending_ssh = label
-        self.message = f"ejecutando '{label}' en {host.name}..."
+        self.message = f"running '{label}' on {host.name}..."
 
         def worker() -> None:
             result = run_ssh_action(host.ssh_user, host.resolved_ssh_host(), cmd, port=host.ssh_port)
@@ -584,9 +584,9 @@ class App:
         threading.Thread(target=worker, daemon=True).start()
 
     def show_ssh_result(self, label: str, result: SSHResult) -> None:
-        lines = [f"Código de salida: {result.returncode}", ""]
+        lines = [f"Exit code: {result.returncode}", ""]
         if result.timed_out:
-            lines.append("Tiempo de espera agotado.")
+            lines.append("Timed out.")
         if result.stdout:
             lines.append("--- stdout ---")
             lines.extend(result.stdout.splitlines())
@@ -594,29 +594,32 @@ class App:
             lines.append("--- stderr ---")
             lines.extend(result.stderr.splitlines())
         if not result.stdout and not result.stderr and not result.timed_out:
-            lines.append("(sin salida)")
+            lines.append("(no output)")
         TextViewer(self.stdscr, lines, title=label).run()
 
     def show_help(self) -> None:
         lines = [
-            "↑/↓ o j/k    mover cursor",
-            "espacio      alternar selección",
-            "a / A        seleccionar todo / ninguno",
-            "enter / w    despertar seleccionados (o el del cursor)",
-            "n            nuevo equipo",
-            "e            editar equipo",
-            "d            borrar equipo(s) seleccionados",
-            "s            acciones SSH del equipo bajo el cursor",
-            "r            refrescar estado ahora",
-            "/            filtrar por nombre",
-            "q / esc      salir",
+            "↑/↓ or j/k   move cursor",
+            "space        toggle selection",
+            "a / A        select all / none",
+            "enter / w    wake selected hosts (or the one under the cursor)",
+            "n            new host",
+            "e            edit host",
+            "d            delete selected host(s)",
+            "s            SSH actions for the host under the cursor",
+            "r            refresh status now",
+            "/            filter by name",
+            "q / esc      quit (Ctrl-C also quits cleanly)",
         ]
-        TextViewer(self.stdscr, lines, title="ayuda").run()
+        TextViewer(self.stdscr, lines, title="help").run()
 
 
 def run(config_path: Optional[Path] = None) -> int:
     def _main(stdscr) -> None:
         App(stdscr, config_path).run()
 
-    curses.wrapper(_main)
+    try:
+        curses.wrapper(_main)
+    except KeyboardInterrupt:
+        pass
     return 0

@@ -5,6 +5,13 @@
 # que justifiquen un entorno virtual.
 set -e
 
+if [ "$(id -u)" -eq 0 ] && [ -z "$PREFIX" ]; then
+    echo "error: no corras install.sh con sudo — no hace falta, solo escribe en tu \$HOME/.local." >&2
+    echo "       corrido con sudo, quedaría instalado en /root en vez de tu usuario." >&2
+    echo "       corré: ./install.sh (sin sudo)" >&2
+    exit 1
+fi
+
 PREFIX="${PREFIX:-$HOME/.local}"
 LIBDIR="$PREFIX/lib/despierte"
 BINDIR="$PREFIX/bin"

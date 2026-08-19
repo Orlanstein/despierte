@@ -7,13 +7,17 @@ correr liviano en una Raspberry Pi Zero 2 W.
 
 ## Instalación
 
-No requiere pip ni pipx (ambos son opcionales, ver más abajo). Desde la raíz
-del repo:
+No requiere pip ni pipx (ambos son opcionales, ver más abajo) **ni sudo** —
+solo escribe dentro de tu `$HOME/.local`. Desde la raíz del repo:
 
 ```sh
 ./install.sh
 # o: make install
 ```
+
+No lo corras con `sudo`: con sudo `$HOME` pasa a ser `/root` y todo termina
+instalado ahí en vez de en tu usuario. El script rechaza correr como root
+para evitar justamente ese error.
 
 Esto copia el paquete a `~/.local/lib/despierte` y crea un launcher ejecutable
 en `~/.local/bin/despierte`. Si `~/.local/bin` no está en tu `PATH`, el script
